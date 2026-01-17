@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { resumeAudioContext, startVoice, stopAllVoices, stopVoice } from "../audio/engine";
 import { CHORD_FREQUENCIES } from "../audio/notes";
-import { DebugOverlay } from "./DebugOverlay";
 
 type TentacleConfig = {
   id: number;
@@ -29,11 +28,7 @@ const TENTACLE_ACTIVE_SRC = (id: number) =>
 const DEFAULT_ASPECT = 16 / 9;
 const DEFAULT_IMAGE_SIZE = { width: 1600, height: 900 };
 
-type StageProps = {
-  debugEnabled: boolean;
-};
-
-export const Stage = ({ debugEnabled }: StageProps) => {
+export const Stage = () => {
   const [aspectRatio, setAspectRatio] = useState(DEFAULT_ASPECT);
   const [missingAssets, setMissingAssets] = useState<string[]>([]);
   const [activeTentacles, setActiveTentacles] = useState<Record<number, boolean>>({});
@@ -41,7 +36,7 @@ export const Stage = ({ debugEnabled }: StageProps) => {
   const [imageSize, setImageSize] = useState(DEFAULT_IMAGE_SIZE);
   const [hitMaps, setHitMaps] = useState<Record<number, ImageData | null>>({});
   const stageRef = useRef<HTMLDivElement | null>(null);
-  const pointerMapRef = useRef(new Map<number, number>());
+  const pointerMapRef = useRef(new Map<number, number | null>());
 
   const assetManifest = useMemo(
     () => [
@@ -203,14 +198,39 @@ export const Stage = ({ debugEnabled }: StageProps) => {
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   };
 
+  const handlePointerMove = (event: ReactPointerEvent) => {
+    if (!pointerMapRef.current.has(event.pointerId)) {
+      return;
+    }
+
+    const currentId = pointerMapRef.current.get(event.pointerId);
+    const nextId = findTentacleHit(event);
+    if (nextId === currentId) {
+      return;
+    }
+
+    if (currentId !== undefined && currentId !== null) {
+      stopVoice(currentId);
+      setActiveTentacles((prev) => ({ ...prev, [currentId]: false }));
+    }
+
+    if (nextId !== null) {
+      startVoice(nextId, CHORD_FREQUENCIES[nextId]);
+      setActiveTentacles((prev) => ({ ...prev, [nextId]: true }));
+      setWiggleTicks((prev) => ({ ...prev, [nextId]: (prev[nextId] ?? 0) + 1 }));
+      pointerMapRef.current.set(event.pointerId, nextId);
+    } else {
+      pointerMapRef.current.set(event.pointerId, null);
+    }
+  };
+
   const handlePointerUp = (event: ReactPointerEvent) => {
     event.preventDefault();
     const id = pointerMapRef.current.get(event.pointerId);
-    if (id === undefined) {
-      return;
+    if (id !== undefined && id !== null) {
+      stopVoice(id);
+      setActiveTentacles((prev) => ({ ...prev, [id]: false }));
     }
-    stopVoice(id);
-    setActiveTentacles((prev) => ({ ...prev, [id]: false }));
     if ((event.currentTarget as HTMLElement).hasPointerCapture(event.pointerId)) {
       (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
     }
@@ -227,10 +247,22 @@ export const Stage = ({ debugEnabled }: StageProps) => {
         style={{ aspectRatio }}
         ref={stageRef}
         onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
         onPointerCancel={handlePointerUp}
         onPointerLeave={handlePointerUp}
       >
+        <div className="soundosaur-caption">
+          <div className="soundosaur-title">
+            Sound-o-saur <span className="soundosaur-pronunciation">/ˈsaʊnd-ə-sɔːr/</span>
+          </div>
+          <div className="soundosaur-subtitle">noun</div>
+          <div className="soundosaur-definition">
+            <div>1. A dinosaur that plays music; a prehistoric creature</div>
+            <div>imagined as producing tones, rhythms, or melodies by</div>
+            <div>means of its body, appendages, or natural ornamentation.</div>
+          </div>
+        </div>
         {missingMessage && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 px-6 text-center text-sm text-white/80">
             <div>
@@ -288,14 +320,6 @@ export const Stage = ({ debugEnabled }: StageProps) => {
                 }}
                 draggable={false}
               />
-              {debugEnabled && (
-                <div className="pointer-events-none absolute inset-0 border border-cyan-400/40">
-                  <div
-                    className="debug-origin"
-                    style={{ left: `${tentacle.origin.x}%`, top: `${tentacle.origin.y}%` }}
-                  />
-                </div>
-              )}
               {showFallback && (
                 <div
                   className="absolute inset-0 mix-blend-screen"
@@ -307,8 +331,6 @@ export const Stage = ({ debugEnabled }: StageProps) => {
             </div>
           );
         })}
-
-        {debugEnabled && <DebugOverlay enabled />}
       </div>
     </div>
   );
