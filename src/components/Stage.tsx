@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { resumeAudioContext, startVoice, stopAllVoices, stopVoice } from "../audio/engine";
-import { NOTE_FREQUENCIES } from "../audio/notes";
+import { CHORD_FREQUENCIES } from "../audio/notes";
 import { DebugOverlay } from "./DebugOverlay";
 
 type TentacleConfig = {
@@ -17,8 +17,6 @@ const TENTACLES: TentacleConfig[] = [
   { id: 3, origin: { x: 56, y: 70 }, label: "t04" },
   { id: 4, origin: { x: 68, y: 68 }, label: "t05" },
   { id: 5, origin: { x: 78, y: 64 }, label: "t06" },
-  { id: 6, origin: { x: 36, y: 54 }, label: "t07" },
-  { id: 7, origin: { x: 62, y: 54 }, label: "t08" },
 ];
 
 // Asset paths expected in public/assets (see README for the list).
@@ -95,7 +93,7 @@ export const Stage = ({ debugEnabled }: StageProps) => {
   const handlePointerDown = (id: number) => async (event: ReactPointerEvent) => {
     event.preventDefault();
     await resumeAudioContext();
-    startVoice(id, NOTE_FREQUENCIES[id]);
+    startVoice(id, CHORD_FREQUENCIES[id]);
     setActiveTentacles((prev) => ({ ...prev, [id]: true }));
     setWiggleTicks((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
