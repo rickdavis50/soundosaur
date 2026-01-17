@@ -91,6 +91,7 @@ body {
 .soundosaur-slider {
   width: 100%;
   appearance: none;
+  direction: ltr;
   height: 4px;
   border-radius: 999px;
   background: rgba(242, 242, 242, 0.85);

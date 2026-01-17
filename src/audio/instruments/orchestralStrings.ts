@@ -56,8 +56,8 @@ const createChorus = (ctx: AudioContext): Chorus => {
   const output = ctx.createGain();
   const dry = ctx.createGain();
   const wet = ctx.createGain();
-  dry.gain.setValueAtTime(0.82, ctx.currentTime);
-  wet.gain.setValueAtTime(0.22, ctx.currentTime);
+  dry.gain.setValueAtTime(0.9, ctx.currentTime);
+  wet.gain.setValueAtTime(0.12, ctx.currentTime);
 
   const delayLeft = ctx.createDelay(0.05);
   const delayRight = ctx.createDelay(0.05);
@@ -70,8 +70,8 @@ const createChorus = (ctx: AudioContext): Chorus => {
   const lfoGainRight = ctx.createGain();
   lfoLeft.frequency.setValueAtTime(0.25, ctx.currentTime);
   lfoRight.frequency.setValueAtTime(0.33, ctx.currentTime);
-  lfoGainLeft.gain.setValueAtTime(0.004, ctx.currentTime);
-  lfoGainRight.gain.setValueAtTime(0.004, ctx.currentTime);
+  lfoGainLeft.gain.setValueAtTime(0.002, ctx.currentTime);
+  lfoGainRight.gain.setValueAtTime(0.002, ctx.currentTime);
   lfoLeft.connect(lfoGainLeft).connect(delayLeft.delayTime);
   lfoRight.connect(lfoGainRight).connect(delayRight.delayTime);
   lfoLeft.start();
@@ -79,8 +79,8 @@ const createChorus = (ctx: AudioContext): Chorus => {
 
   const panLeft = ctx.createStereoPanner();
   const panRight = ctx.createStereoPanner();
-  panLeft.pan.setValueAtTime(-0.35, ctx.currentTime);
-  panRight.pan.setValueAtTime(0.35, ctx.currentTime);
+  panLeft.pan.setValueAtTime(-0.2, ctx.currentTime);
+  panRight.pan.setValueAtTime(0.2, ctx.currentTime);
 
   input.connect(dry).connect(output);
   input.connect(delayLeft).connect(panLeft).connect(wet).connect(output);
@@ -92,7 +92,7 @@ const createChorus = (ctx: AudioContext): Chorus => {
 const createReverb = (ctx: AudioContext): ReverbBus => {
   const input = ctx.createGain();
   const output = ctx.createGain();
-  output.gain.setValueAtTime(0.6, ctx.currentTime);
+  output.gain.setValueAtTime(0.45, ctx.currentTime);
 
   const tone = ctx.createBiquadFilter();
   tone.type = "lowpass";
@@ -123,7 +123,7 @@ export const createStringsBus = (ctx: AudioContext): StringsBus => {
   const input = ctx.createGain();
   const reverbInput = ctx.createGain();
   const output = ctx.createGain();
-  output.gain.setValueAtTime(0.9, ctx.currentTime);
+  output.gain.setValueAtTime(0.95, ctx.currentTime);
 
   const chorus = createChorus(ctx);
   input.connect(chorus.input);
@@ -154,8 +154,8 @@ export const createOrchestralStringsVoice = (
 
   const noiseGain = ctx.createGain();
   noiseGain.gain.setValueAtTime(0.0001, startTime);
-  noiseGain.gain.exponentialRampToValueAtTime(0.12, startTime + attack);
-  noiseGain.gain.exponentialRampToValueAtTime(0.06, startTime + attack + decay);
+  noiseGain.gain.exponentialRampToValueAtTime(0.05, startTime + attack);
+  noiseGain.gain.exponentialRampToValueAtTime(0.02, startTime + attack + decay);
 
   const filter = ctx.createBiquadFilter();
   filter.type = "lowpass";
@@ -164,13 +164,13 @@ export const createOrchestralStringsVoice = (
   filter.frequency.exponentialRampToValueAtTime(1300, startTime + attack + 0.35);
   filter.Q.setValueAtTime(0.7, startTime);
 
-  const saturation = createSaturation(ctx, 0.45);
+  const saturation = createSaturation(ctx, 0.12);
 
   const output = ctx.createGain();
   output.gain.setValueAtTime(1, startTime);
 
   const reverbSend = ctx.createGain();
-  reverbSend.gain.setValueAtTime(0.35, startTime);
+  reverbSend.gain.setValueAtTime(0.18, startTime);
 
   const oscillators: OscillatorNode[] = [];
   frequencies.forEach((frequency) => {
@@ -180,8 +180,8 @@ export const createOrchestralStringsVoice = (
     oscB.type = "sawtooth";
     oscA.frequency.setValueAtTime(frequency, startTime);
     oscB.frequency.setValueAtTime(frequency, startTime);
-    oscA.detune.setValueAtTime(-7, startTime);
-    oscB.detune.setValueAtTime(7, startTime);
+    oscA.detune.setValueAtTime(-4, startTime);
+    oscB.detune.setValueAtTime(4, startTime);
     oscA.connect(filter);
     oscB.connect(filter);
     oscA.start();
@@ -192,7 +192,7 @@ export const createOrchestralStringsVoice = (
   const subOsc = ctx.createOscillator();
   subOsc.type = "triangle";
   subOsc.frequency.setValueAtTime(frequencies[0] / 2, startTime);
-  subOsc.detune.setValueAtTime(-4, startTime);
+  subOsc.detune.setValueAtTime(-2, startTime);
   subOsc.connect(filter);
   subOsc.start();
   oscillators.push(subOsc);
