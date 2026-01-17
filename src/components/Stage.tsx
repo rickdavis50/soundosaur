@@ -21,7 +21,8 @@ const TENTACLES: TentacleConfig[] = [
 // Asset paths expected in public/assets (see README for the list).
 const BASE_URL = import.meta.env.BASE_URL;
 const BODY_SRC = `${BASE_URL}assets/body.png`;
-const HEAD_SRC = `${BASE_URL}assets/head.png`;
+const HEAD_VERSION = "2";
+const HEAD_SRC = `${BASE_URL}assets/head.png?v=${HEAD_VERSION}`;
 const TENTACLE_SRC = (id: number) => `${BASE_URL}assets/tentacles/t0${id + 1}.png`;
 const TENTACLE_ACTIVE_SRC = (id: number) =>
   `${BASE_URL}assets/tentacles_active/t0${id + 1}.png`;
