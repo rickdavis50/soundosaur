@@ -28,7 +28,12 @@ const TENTACLE_ACTIVE_SRC = (id: number) =>
 const DEFAULT_ASPECT = 16 / 9;
 const DEFAULT_IMAGE_SIZE = { width: 1600, height: 900 };
 
-export const Stage = () => {
+type StageProps = {
+  bpm: number;
+  onBpmChange: (nextBpm: number) => void;
+};
+
+export const Stage = ({ bpm, onBpmChange }: StageProps) => {
   const [aspectRatio, setAspectRatio] = useState(DEFAULT_ASPECT);
   const [missingAssets, setMissingAssets] = useState<string[]>([]);
   const [activeTentacles, setActiveTentacles] = useState<Record<number, boolean>>({});
@@ -332,6 +337,19 @@ export const Stage = () => {
             </div>
           );
         })}
+
+        <div className="absolute bottom-4 right-4 z-10 w-40">
+          <input
+            type="range"
+            min={70}
+            max={130}
+            step={1}
+            value={bpm}
+            onChange={(event) => onBpmChange(Number(event.target.value))}
+            className="soundosaur-slider"
+            aria-label="Tempo"
+          />
+        </div>
       </div>
     </div>
   );
