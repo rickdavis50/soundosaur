@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
-import { resumeAudioContext, startVoice, stopAllVoices, stopVoice } from "../audio/engine";
+import { resumeAudioContext, startBeat, startVoice, stopAllVoices, stopVoice } from "../audio/engine";
 import { CHORD_FREQUENCIES } from "../audio/notes";
 
 type TentacleConfig = {
@@ -191,6 +191,7 @@ export const Stage = () => {
       return;
     }
     await resumeAudioContext();
+    startBeat();
     startVoice(id, CHORD_FREQUENCIES[id]);
     setActiveTentacles((prev) => ({ ...prev, [id]: true }));
     setWiggleTicks((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
