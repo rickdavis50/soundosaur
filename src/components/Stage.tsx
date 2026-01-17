@@ -346,6 +346,9 @@ export const Stage = ({ bpm, onBpmChange }: StageProps) => {
             step={1}
             value={bpm}
             onChange={(event) => onBpmChange(Number(event.target.value))}
+            onPointerDown={(event) => event.stopPropagation()}
+            onPointerMove={(event) => event.stopPropagation()}
+            onPointerUp={(event) => event.stopPropagation()}
             className="soundosaur-slider"
             aria-label="Tempo"
           />
