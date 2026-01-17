@@ -21,6 +21,7 @@ const TENTACLES: TentacleConfig[] = [
 // Asset paths expected in public/assets (see README for the list).
 const BASE_URL = import.meta.env.BASE_URL;
 const BODY_SRC = `${BASE_URL}assets/body.png`;
+const HEAD_SRC = `${BASE_URL}assets/head.png`;
 const TENTACLE_SRC = (id: number) => `${BASE_URL}assets/tentacles/t0${id + 1}.png`;
 const TENTACLE_ACTIVE_SRC = (id: number) =>
   `${BASE_URL}assets/tentacles_active/t0${id + 1}.png`;
@@ -46,6 +47,7 @@ export const Stage = ({ bpm, onBpmChange }: StageProps) => {
   const assetManifest = useMemo(
     () => [
       { src: BODY_SRC, display: "public/assets/body.png" },
+      { src: HEAD_SRC, display: "public/assets/head.png" },
       ...TENTACLES.map((tentacle) => ({
         src: TENTACLE_SRC(tentacle.id),
         display: `public/assets/tentacles/t0${tentacle.id + 1}.png`,
@@ -245,6 +247,7 @@ export const Stage = ({ bpm, onBpmChange }: StageProps) => {
 
   const missingMessage = missingAssets.length > 0;
   const showFallback = missingAssets.length > 0;
+  const isAnyActive = Object.values(activeTentacles).some(Boolean);
 
   return (
     <div className="w-full">
@@ -293,6 +296,16 @@ export const Stage = ({ bpm, onBpmChange }: StageProps) => {
           alt="Soundosaur body"
           className="absolute inset-0 h-full w-full object-contain"
           style={{ opacity: missingAssets.includes(BODY_SRC) ? 0 : 1 }}
+          draggable={false}
+          aria-hidden="true"
+        />
+        <img
+          src={HEAD_SRC}
+          alt="Soundosaur head overlay"
+          className="absolute inset-0 h-full w-full object-contain"
+          style={{
+            opacity: missingAssets.includes(HEAD_SRC) || !isAnyActive ? 0 : 1,
+          }}
           draggable={false}
           aria-hidden="true"
         />
