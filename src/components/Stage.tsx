@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent as ReactPointerEvent } from "react";
 import { resumeAudioContext, startVoice, stopAllVoices, stopVoice } from "../audio/engine";
 import { CHORD_FREQUENCIES } from "../audio/notes";
@@ -27,6 +27,7 @@ const TENTACLE_ACTIVE_SRC = (id: number) =>
   `${BASE_URL}assets/tentacles_active/t0${id + 1}.png`;
 
 const DEFAULT_ASPECT = 16 / 9;
+const DEFAULT_IMAGE_SIZE = { width: 1600, height: 900 };
 
 type StageProps = {
   debugEnabled: boolean;
@@ -37,6 +38,10 @@ export const Stage = ({ debugEnabled }: StageProps) => {
   const [missingAssets, setMissingAssets] = useState<string[]>([]);
   const [activeTentacles, setActiveTentacles] = useState<Record<number, boolean>>({});
   const [wiggleTicks, setWiggleTicks] = useState<Record<number, number>>({});
+  const [imageSize, setImageSize] = useState(DEFAULT_IMAGE_SIZE);
+  const [hitMaps, setHitMaps] = useState<Record<number, ImageData | null>>({});
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const pointerMapRef = useRef(new Map<number, number>());
 
   const assetManifest = useMemo(
     () => [
@@ -65,6 +70,25 @@ export const Stage = ({ debugEnabled }: StageProps) => {
         image.src = src;
       });
 
+    const loadImageData = (src: string) =>
+      new Promise<ImageData | null>((resolve) => {
+        const image = new Image();
+        image.onload = () => {
+          const canvas = document.createElement("canvas");
+          canvas.width = image.naturalWidth;
+          canvas.height = image.naturalHeight;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) {
+            resolve(null);
+            return;
+          }
+          ctx.drawImage(image, 0, 0);
+          resolve(ctx.getImageData(0, 0, canvas.width, canvas.height));
+        };
+        image.onerror = () => resolve(null);
+        image.src = src;
+      });
+
     Promise.all(assetManifest.map((asset) => loadImage(asset.src))).then((results) => {
       if (!isMounted) {
         return;
@@ -79,10 +103,26 @@ export const Stage = ({ debugEnabled }: StageProps) => {
       const bodyResult = results.find((result) => result.src === BODY_SRC);
       if (bodyResult?.width && bodyResult.height) {
         setAspectRatio(bodyResult.width / bodyResult.height);
+        setImageSize({ width: bodyResult.width, height: bodyResult.height });
+      } else {
+        setImageSize(DEFAULT_IMAGE_SIZE);
       }
 
       setMissingAssets(Array.from(errors));
     });
+
+    Promise.all(TENTACLES.map((tentacle) => loadImageData(TENTACLE_SRC(tentacle.id)))).then(
+      (results) => {
+        if (!isMounted) {
+          return;
+        }
+        const nextMaps: Record<number, ImageData | null> = {};
+        results.forEach((data, index) => {
+          nextMaps[TENTACLES[index].id] = data;
+        });
+        setHitMaps(nextMaps);
+      }
+    );
 
     return () => {
       isMounted = false;
@@ -90,22 +130,91 @@ export const Stage = ({ debugEnabled }: StageProps) => {
     };
   }, [assetManifest]);
 
-  const handlePointerDown = (id: number) => async (event: ReactPointerEvent) => {
+  const findTentacleHit = (event: ReactPointerEvent) => {
+    const stage = stageRef.current;
+    if (!stage) {
+      return null;
+    }
+
+    const rect = stage.getBoundingClientRect();
+    const stageX = event.clientX - rect.left;
+    const stageY = event.clientY - rect.top;
+    if (stageX < 0 || stageY < 0 || stageX > rect.width || stageY > rect.height) {
+      return null;
+    }
+
+    const imageAspect = imageSize.width / imageSize.height;
+    const stageAspect = rect.width / rect.height;
+    let drawWidth = rect.width;
+    let drawHeight = rect.height;
+    let offsetX = 0;
+    let offsetY = 0;
+
+    if (stageAspect > imageAspect) {
+      drawHeight = rect.height;
+      drawWidth = drawHeight * imageAspect;
+      offsetX = (rect.width - drawWidth) / 2;
+    } else {
+      drawWidth = rect.width;
+      drawHeight = drawWidth / imageAspect;
+      offsetY = (rect.height - drawHeight) / 2;
+    }
+
+    if (
+      stageX < offsetX ||
+      stageX > offsetX + drawWidth ||
+      stageY < offsetY ||
+      stageY > offsetY + drawHeight
+    ) {
+      return null;
+    }
+
+    const normX = (stageX - offsetX) / drawWidth;
+    const normY = (stageY - offsetY) / drawHeight;
+    const pixelX = Math.min(imageSize.width - 1, Math.max(0, Math.floor(normX * imageSize.width)));
+    const pixelY = Math.min(imageSize.height - 1, Math.max(0, Math.floor(normY * imageSize.height)));
+
+    const ordered = [...TENTACLES].reverse();
+    for (const tentacle of ordered) {
+      const data = hitMaps[tentacle.id];
+      if (!data) {
+        continue;
+      }
+      const index = (pixelY * data.width + pixelX) * 4 + 3;
+      if (data.data[index] > 10) {
+        return tentacle.id;
+      }
+    }
+
+    return null;
+  };
+
+  const handlePointerDown = async (event: ReactPointerEvent) => {
     event.preventDefault();
+    const id = findTentacleHit(event);
+    if (id === null) {
+      return;
+    }
     await resumeAudioContext();
     startVoice(id, CHORD_FREQUENCIES[id]);
     setActiveTentacles((prev) => ({ ...prev, [id]: true }));
     setWiggleTicks((prev) => ({ ...prev, [id]: (prev[id] ?? 0) + 1 }));
+    pointerMapRef.current.set(event.pointerId, id);
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
   };
 
-  const handlePointerUp = (id: number) => (event: ReactPointerEvent) => {
+  const handlePointerUp = (event: ReactPointerEvent) => {
     event.preventDefault();
+    const id = pointerMapRef.current.get(event.pointerId);
+    if (id === undefined) {
+      return;
+    }
     stopVoice(id);
     setActiveTentacles((prev) => ({ ...prev, [id]: false }));
     if ((event.currentTarget as HTMLElement).hasPointerCapture(event.pointerId)) {
       (event.currentTarget as HTMLElement).releasePointerCapture(event.pointerId);
     }
+    pointerMapRef.current.delete(event.pointerId);
   };
 
   const missingMessage = missingAssets.length > 0;
@@ -116,6 +225,11 @@ export const Stage = ({ debugEnabled }: StageProps) => {
       <div
         className="stage-vignette relative mx-auto w-full max-w-[1200px] overflow-hidden rounded-2xl border border-white/10 shadow-[0_30px_60px_rgba(0,0,0,0.6)] touch-none"
         style={{ aspectRatio }}
+        ref={stageRef}
+        onPointerDown={handlePointerDown}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onPointerLeave={handlePointerUp}
       >
         {missingMessage && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/70 px-6 text-center text-sm text-white/80">
@@ -142,6 +256,7 @@ export const Stage = ({ debugEnabled }: StageProps) => {
           className="absolute inset-0 h-full w-full object-contain"
           style={{ opacity: missingAssets.includes(BODY_SRC) ? 0 : 1 }}
           draggable={false}
+          aria-hidden="true"
         />
 
         {TENTACLES.map((tentacle) => {
@@ -156,10 +271,6 @@ export const Stage = ({ debugEnabled }: StageProps) => {
               style={{
                 transformOrigin: `${tentacle.origin.x}% ${tentacle.origin.y}%`,
               }}
-              onPointerDown={handlePointerDown(tentacle.id)}
-              onPointerUp={handlePointerUp(tentacle.id)}
-              onPointerCancel={handlePointerUp(tentacle.id)}
-              onPointerLeave={handlePointerUp(tentacle.id)}
             >
               <img
                 src={isActive ? TENTACLE_ACTIVE_SRC(tentacle.id) : TENTACLE_SRC(tentacle.id)}
